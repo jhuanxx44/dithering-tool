@@ -180,6 +180,98 @@
     background: var(--accent);
   }
 
+  /* 图片模式下面板的折叠 / 展开动效 */
+  #controls {
+    transition: opacity 0.3s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: left bottom;
+  }
+
+  body.controls-collapsed #controls {
+    opacity: 0;
+    transform: translateY(20px) scale(0.92);
+    pointer-events: none;
+  }
+
+  #controls-toggle {
+    position: fixed;
+    left: 24px;
+    bottom: 24px;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    transform: scale(0.4) rotate(-120deg);
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  body.controls-collapsed #controls-toggle {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    pointer-events: auto;
+  }
+
+  body.controls-collapsed #controls-toggle:hover {
+    transform: scale(1.12) rotate(0deg);
+  }
+
+  .span-2 {
+    grid-column: 1 / -1;
+  }
+
+  .image-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  button {
+    flex: 1;
+    padding: 9px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  /* 未加载图片时，「选择图片…」作为主操作高亮 */
+  #pick-image.primary {
+    border-color: transparent;
+    background: var(--accent);
+    color: #16111f;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(255, 192, 122, 0.28);
+  }
+
+  #pick-image.primary:hover {
+    background: #ffcf9c;
+    box-shadow: 0 8px 24px rgba(255, 192, 122, 0.38);
+  }
+
+  button[hidden] {
+    display: none;
+  }
+
+  select:disabled,
+  input[type="range"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   @media (max-width: 560px) {
     #controls {
       grid-template-columns: 1fr;
@@ -195,6 +287,11 @@
     #gradient {
       animation: none;
     }
+
+    #controls,
+    #controls-toggle {
+      transition: none;
+    }
   }
 </style>
 </head>
@@ -206,6 +303,17 @@
     <h1>Dither<br>Light</h1>
     <p>Bayer 有序抖动 · 渐变底层</p>
   </header>
+
+  <button id="controls-toggle" type="button" aria-label="展开参数面板">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16111f" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <line x1="4" y1="7" x2="20" y2="7"></line>
+      <circle cx="9" cy="7" r="2.4" fill="#16111f" stroke="none"></circle>
+      <line x1="4" y1="12" x2="20" y2="12"></line>
+      <circle cx="15" cy="12" r="2.4" fill="#16111f" stroke="none"></circle>
+      <line x1="4" y1="17" x2="20" y2="17"></line>
+      <circle cx="7" cy="17" r="2.4" fill="#16111f" stroke="none"></circle>
+    </svg>
+  </button>
 
   <form id="controls" aria-label="抖动光影参数">
     <div class="control">
@@ -254,6 +362,16 @@
       <label for="ambient">环境光 <span class="value" id="ambient-value">0.22</span></label>
       <input id="ambient" type="range" min="0" max="0.7" step="0.02" value="0.22">
     </div>
+
+    <div class="control span-2">
+      <label>本地图片（可拖入页面） <span class="value" id="image-name">未加载</span></label>
+      <div class="image-actions">
+        <button type="button" id="pick-image">选择图片…</button>
+        <button type="button" id="download-image" hidden>下载 PNG</button>
+        <button type="button" id="clear-image" hidden>清除</button>
+      </div>
+      <input id="file-input" type="file" accept="image/*" hidden>
+    </div>
   </form>
 
   <script>
@@ -276,6 +394,21 @@
       const gridValue = document.getElementById("grid-value");
       const contrastValue = document.getElementById("contrast-value");
       const ambientValue = document.getElementById("ambient-value");
+
+      const controlsEl = document.getElementById("controls");
+      const controlsToggleEl = document.getElementById("controls-toggle");
+      const pickImageEl = document.getElementById("pick-image");
+      const clearImageEl = document.getElementById("clear-image");
+      const downloadImageEl = document.getElementById("download-image");
+      const fileInputEl = document.getElementById("file-input");
+      const imageNameEl = document.getElementById("image-name");
+
+      // 图片模式状态：sourceImage 非空时，用图片亮度取代光场作为抖动输入
+      let sourceImage = null;
+      let imageFileName = "";
+      let imageDirty = true;
+      let lumaCache = null;
+      let lumaKey = "";
 
       const matrixCache = new Map();
       const off = document.createElement("canvas");
@@ -328,6 +461,7 @@
         canvas.width = Math.round(cssWidth * dpr);
         canvas.height = Math.round(cssHeight * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        imageDirty = true;
       }
 
       function clamp01(value) {
@@ -385,7 +519,95 @@
         );
       }
 
+      // 将图片按 cover 方式采样为 cols×rows 的亮度场（带缓存，仅尺寸变化时重采样）
+      function sampleLuminance(cols, rows) {
+        const key = cols + "x" + rows;
+        if (lumaCache && lumaKey === key) return lumaCache;
+
+        if (off.width !== cols || off.height !== rows) {
+          off.width = cols;
+          off.height = rows;
+        }
+
+        const scale = Math.max(cols / sourceImage.width, rows / sourceImage.height);
+        const drawWidth = sourceImage.width * scale;
+        const drawHeight = sourceImage.height * scale;
+        offCtx.drawImage(
+          sourceImage,
+          (cols - drawWidth) / 2,
+          (rows - drawHeight) / 2,
+          drawWidth,
+          drawHeight
+        );
+
+        const pixels = offCtx.getImageData(0, 0, cols, rows).data;
+        const luma = new Float32Array(cols * rows);
+        for (let i = 0; i < luma.length; i += 1) {
+          const p = i * 4;
+          luma[i] = (0.2126 * pixels[p] + 0.7152 * pixels[p + 1] + 0.0722 * pixels[p + 2]) / 255;
+        }
+
+        lumaCache = luma;
+        lumaKey = key;
+        return luma;
+      }
+
+      function drawImageMode() {
+        const preset = presetEl.value;
+        const n = parseInt(matrixEl.value, 10);
+        const bayer = buildBayer(n);
+        const thresholdScale = n * n;
+        const grid = parseFloat(gridEl.value);
+        const ambient = parseFloat(ambientEl.value);
+        const contrast = parseFloat(contrastEl.value);
+
+        const cols = Math.max(1, Math.ceil(cssWidth / grid));
+        const rows = Math.max(1, Math.ceil(cssHeight / grid));
+        const luma = sampleLuminance(cols, rows);
+
+        // 预设映射：白底黑点 / 黑底白点 / 双色调（深紫 + 暖橙）
+        let dot = [0, 0, 0];
+        let paper = [255, 255, 255];
+        let invert = false;
+        if (preset === "highlight") {
+          dot = [255, 255, 255];
+          paper = [0, 0, 0];
+        } else if (preset === "duotone") {
+          dot = [255, 192, 122];
+          paper = [22, 16, 31];
+          invert = true;
+        }
+
+        const image = offCtx.createImageData(cols, rows);
+        const data = image.data;
+
+        for (let gy = 0; gy < rows; gy += 1) {
+          const by = gy % n;
+          for (let gx = 0; gx < cols; gx += 1) {
+            const cell = gy * cols + gx;
+            const value = clamp01(0.5 + ((ambient + (1 - ambient) * luma[cell]) - 0.5) * contrast);
+            const threshold = (bayer[by][gx % n] + 0.5) / thresholdScale;
+            const isDot = invert ? value >= threshold : value < threshold;
+            const color = isDot ? dot : paper;
+            const index = cell * 4;
+            data[index] = color[0];
+            data[index + 1] = color[1];
+            data[index + 2] = color[2];
+            data[index + 3] = 255;
+          }
+        }
+
+        offCtx.putImageData(image, 0, 0);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(off, 0, 0, cssWidth, cssHeight);
+      }
+
       function draw(time) {
+        if (sourceImage) {
+          drawImageMode();
+          return;
+        }
+
         const preset = presetEl.value;
         const n = parseInt(matrixEl.value, 10);
         const bayer = buildBayer(n);
@@ -457,9 +679,94 @@
 
       function updatePreset() {
         const preset = presetEl.value;
-        canvas.style.mixBlendMode =
+        canvas.style.mixBlendMode = sourceImage ? "normal" :
           preset === "highlight" ? "screen" :
           preset === "duotone" ? "overlay" : "multiply";
+      }
+
+      // 折叠状态机：仅图片模式下生效，指针离开面板片刻后折叠成小圆钮
+      let collapseTimer = null;
+
+      function setControlsCollapsed(collapsed) {
+        document.body.classList.toggle("controls-collapsed", collapsed);
+      }
+
+      function scheduleCollapse() {
+        clearTimeout(collapseTimer);
+        collapseTimer = setTimeout(() => {
+          if (!sourceImage) return;
+          // 仍悬停在面板上，或面板内有控件持有焦点（如下拉框展开中）则不折叠
+          if (controlsEl.matches(":hover")) return;
+          // 下拉框展开或滑块拖动中（焦点在控件上）则不折叠
+          const active = document.activeElement;
+          if (controlsEl.contains(active) && (active.tagName === "SELECT" || active.type === "range")) return;
+          setControlsCollapsed(true);
+        }, 800);
+      }
+
+      function expandControls() {
+        clearTimeout(collapseTimer);
+        setControlsCollapsed(false);
+      }
+
+      function updateImageUI() {
+        const hasImage = Boolean(sourceImage);
+        imageNameEl.textContent = hasImage ? imageFileName : "未加载";
+        clearImageEl.hidden = !hasImage;
+        downloadImageEl.hidden = !hasImage;
+        pickImageEl.classList.toggle("primary", !hasImage);
+        pickImageEl.textContent = hasImage ? "更换图片…" : "选择图片…";
+        sourceEl.disabled = hasImage;
+        speedEl.disabled = hasImage;
+        if (hasImage) {
+          scheduleCollapse();
+        } else {
+          expandControls();
+        }
+      }
+
+      function loadImageFile(file) {
+        if (!file || !file.type.startsWith("image/")) return;
+
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          sourceImage = img;
+          imageFileName = file.name;
+          lumaKey = "";
+          imageDirty = true;
+          updateImageUI();
+          updatePreset();
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          imageNameEl.textContent = "图片读取失败";
+        };
+        img.src = url;
+      }
+
+      function clearImage() {
+        sourceImage = null;
+        imageFileName = "";
+        lumaCache = null;
+        lumaKey = "";
+        fileInputEl.value = "";
+        updateImageUI();
+        updatePreset();
+      }
+
+      function downloadImage() {
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          const base = imageFileName ? imageFileName.replace(/\.[^.]+$/, "") : "image";
+          link.download = "dithered-" + base + ".png";
+          link.click();
+          URL.revokeObjectURL(url);
+        }, "image/png");
       }
 
       function updateValueLabels() {
@@ -470,8 +777,16 @@
       }
 
       function frame(now) {
-        const speed = reducedMotion ? 0 : parseFloat(speedEl.value);
-        draw(now * 0.001 * speed);
+        if (sourceImage) {
+          // 图片是静态的，仅在参数或尺寸变化时重绘
+          if (imageDirty) {
+            imageDirty = false;
+            drawImageMode();
+          }
+        } else {
+          const speed = reducedMotion ? 0 : parseFloat(speedEl.value);
+          draw(now * 0.001 * speed);
+        }
         requestAnimationFrame(frame);
       }
 
@@ -488,16 +803,54 @@
           if (!event.relatedTarget) pointer.active = false;
         });
 
-        presetEl.addEventListener("change", updatePreset);
+        presetEl.addEventListener("change", () => {
+          imageDirty = true;
+          updatePreset();
+        });
+        matrixEl.addEventListener("change", () => {
+          imageDirty = true;
+        });
         speedEl.addEventListener("input", updateValueLabels);
-        gridEl.addEventListener("input", updateValueLabels);
-        contrastEl.addEventListener("input", updateValueLabels);
-        ambientEl.addEventListener("input", updateValueLabels);
+        gridEl.addEventListener("input", () => {
+          imageDirty = true;
+          updateValueLabels();
+        });
+        contrastEl.addEventListener("input", () => {
+          imageDirty = true;
+          updateValueLabels();
+        });
+        ambientEl.addEventListener("input", () => {
+          imageDirty = true;
+          updateValueLabels();
+        });
+
+        pickImageEl.addEventListener("click", () => fileInputEl.click());
+        fileInputEl.addEventListener("change", () => {
+          loadImageFile(fileInputEl.files[0]);
+        });
+        clearImageEl.addEventListener("click", clearImage);
+        downloadImageEl.addEventListener("click", downloadImage);
+
+        controlsEl.addEventListener("pointerenter", expandControls);
+        controlsEl.addEventListener("pointerleave", scheduleCollapse);
+        controlsToggleEl.addEventListener("pointerenter", expandControls);
+        controlsToggleEl.addEventListener("click", expandControls);
+
+        window.addEventListener("dragover", (event) => {
+          event.preventDefault();
+        });
+        window.addEventListener("drop", (event) => {
+          event.preventDefault();
+          if (event.dataTransfer && event.dataTransfer.files.length) {
+            loadImageFile(event.dataTransfer.files[0]);
+          }
+        });
       }
 
       resize();
       updatePreset();
       updateValueLabels();
+      updateImageUI();
       bindEvents();
       requestAnimationFrame(frame);
     })();
