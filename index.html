@@ -28,33 +28,10 @@
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
-  #gradient {
-    position: fixed;
-    inset: -12%;
-    z-index: 0;
-    background:
-      radial-gradient(52% 52% at 18% 26%, rgba(255, 199, 118, 0.95) 0%, rgba(255, 199, 118, 0) 70%),
-      radial-gradient(50% 50% at 82% 22%, rgba(255, 108, 158, 0.85) 0%, rgba(255, 108, 158, 0) 70%),
-      radial-gradient(62% 62% at 50% 112%, rgba(122, 92, 255, 0.90) 0%, rgba(122, 92, 255, 0) 72%),
-      linear-gradient(155deg, #07050f 0%, #2a1240 48%, #06152b 100%);
-    filter: saturate(1.08) contrast(1.04);
-    transform-origin: 50% 50%;
-    animation: drift 20s ease-in-out infinite alternate;
-  }
-
-  @keyframes drift {
-    from { transform: translate3d(0, 0, 0) scale(1); }
-    to   { transform: translate3d(-3%, 2%, 0) scale(1.12); }
-  }
-
-  #dither {
+  dither-light {
     position: fixed;
     inset: 0;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    mix-blend-mode: multiply;
-    pointer-events: none;
+    z-index: 0;
   }
 
   header {
@@ -284,10 +261,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    #gradient {
-      animation: none;
-    }
-
     #controls,
     #controls-toggle {
       transition: none;
@@ -296,13 +269,7 @@
 </style>
 </head>
 <body>
-  <div id="gradient" aria-hidden="true"></div>
-  <canvas id="dither" role="img" aria-label="动态有序抖动的光影图层，覆盖在漂移渐变之上"></canvas>
-
-  <header>
-    <h1>Dither<br>Light</h1>
-    <p>Bayer 有序抖动 · 渐变底层</p>
-  </header>
+  <dither-light id="fx"></dither-light>
 
   <button id="controls-toggle" type="button" aria-label="展开参数面板">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16111f" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -314,6 +281,11 @@
       <circle cx="7" cy="17" r="2.4" fill="#16111f" stroke="none"></circle>
     </svg>
   </button>
+
+  <header>
+    <h1>Dither<br>Light</h1>
+    <p>Bayer 有序抖动 · 渐变底层</p>
+  </header>
 
   <form id="controls" aria-label="抖动光影参数">
     <div class="control">
@@ -374,13 +346,14 @@
     </div>
   </form>
 
+  <script src="dither-light.js"></script>
   <script>
     (() => {
       "use strict";
 
-      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const canvas = document.getElementById("dither");
-      const ctx = canvas.getContext("2d", { alpha: true });
+      const fx = document.getElementById("fx");
+      const controlsEl = document.getElementById("controls");
+      const controlsToggleEl = document.getElementById("controls-toggle");
 
       const presetEl = document.getElementById("preset");
       const sourceEl = document.getElementById("source");
@@ -395,293 +368,19 @@
       const contrastValue = document.getElementById("contrast-value");
       const ambientValue = document.getElementById("ambient-value");
 
-      const controlsEl = document.getElementById("controls");
-      const controlsToggleEl = document.getElementById("controls-toggle");
       const pickImageEl = document.getElementById("pick-image");
       const clearImageEl = document.getElementById("clear-image");
       const downloadImageEl = document.getElementById("download-image");
       const fileInputEl = document.getElementById("file-input");
       const imageNameEl = document.getElementById("image-name");
 
-      // 图片模式状态：sourceImage 非空时，用图片亮度取代光场作为抖动输入
-      let sourceImage = null;
-      let imageFileName = "";
-      let imageDirty = true;
-      let lumaCache = null;
-      let lumaKey = "";
+      let imageLoaded = false;
 
-      const matrixCache = new Map();
-      const off = document.createElement("canvas");
-      const offCtx = off.getContext("2d", { alpha: true });
-
-      let cssWidth = 0;
-      let cssHeight = 0;
-      let dpr = 1;
-
-      const pointer = {
-        x: window.innerWidth / 2,
-        y: window.innerHeight / 2,
-        active: false
-      };
-
-      function buildBayer(n) {
-        if (matrixCache.has(n)) return matrixCache.get(n);
-
-        let matrix;
-        if (n === 1) {
-          matrix = [[0]];
-        } else if (n === 3) {
-          matrix = [
-            [0, 7, 3],
-            [6, 5, 2],
-            [4, 1, 8]
-          ];
-        } else {
-          const half = n / 2;
-          const prev = buildBayer(half);
-          const offset = [[0, 2], [3, 1]];
-          matrix = Array.from({ length: n }, () => Array(n).fill(0));
-
-          for (let y = 0; y < n; y += 1) {
-            for (let x = 0; x < n; x += 1) {
-              matrix[y][x] = prev[y % half][x % half] * 4 +
-                offset[Math.floor(y / half)][Math.floor(x / half)];
-            }
-          }
-        }
-
-        matrixCache.set(n, matrix);
-        return matrix;
-      }
-
-      function resize() {
-        cssWidth = window.innerWidth;
-        cssHeight = window.innerHeight;
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.round(cssWidth * dpr);
-        canvas.height = Math.round(cssHeight * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        imageDirty = true;
-      }
-
-      function clamp01(value) {
-        return Math.max(0, Math.min(1, value));
-      }
-
-      function smoothstep(edge0, edge1, x) {
-        const t = clamp01((x - edge0) / (edge1 - edge0));
-        return t * t * (3 - 2 * t);
-      }
-
-      function glow(cx, cy, radius, px, py) {
-        return smoothstep(radius, 0, Math.hypot(px - cx, py - cy));
-      }
-
-      function makeLightState(time) {
-        const minSide = Math.min(cssWidth, cssHeight);
-
-        if (sourceEl.value === "pointer") {
-          const targetX = pointer.active ? pointer.x : cssWidth * 0.5;
-          const targetY = pointer.active ? pointer.y : cssHeight * 0.5;
-          return {
-            type: "pointer",
-            x: targetX,
-            y: targetY,
-            r: minSide * 0.56,
-            ax: cssWidth - targetX,
-            ay: cssHeight - targetY,
-            ar: minSide * 0.30
-          };
-        }
-
-        return {
-          type: "auto",
-          x1: cssWidth * (0.5 + 0.30 * Math.sin(time * 0.23)),
-          y1: cssHeight * (0.48 + 0.26 * Math.cos(time * 0.17)),
-          r1: minSide * (0.52 + 0.08 * Math.sin(time * 0.31)),
-          x2: cssWidth * (0.72 + 0.16 * Math.cos(time * 0.13)),
-          y2: cssHeight * (0.22 + 0.16 * Math.sin(time * 0.11)),
-          r2: minSide * 0.26
-        };
-      }
-
-      function lightAt(px, py, state) {
-        if (state.type === "pointer") {
-          return Math.max(
-            glow(state.x, state.y, state.r, px, py),
-            glow(state.ax, state.ay, state.ar, px, py) * 0.48
-          );
-        }
-
-        return Math.max(
-          glow(state.x1, state.y1, state.r1, px, py),
-          glow(state.x2, state.y2, state.r2, px, py) * 0.72
-        );
-      }
-
-      // 将图片按 cover 方式采样为 cols×rows 的亮度场（带缓存，仅尺寸变化时重采样）
-      function sampleLuminance(cols, rows) {
-        const key = cols + "x" + rows;
-        if (lumaCache && lumaKey === key) return lumaCache;
-
-        if (off.width !== cols || off.height !== rows) {
-          off.width = cols;
-          off.height = rows;
-        }
-
-        const scale = Math.max(cols / sourceImage.width, rows / sourceImage.height);
-        const drawWidth = sourceImage.width * scale;
-        const drawHeight = sourceImage.height * scale;
-        offCtx.drawImage(
-          sourceImage,
-          (cols - drawWidth) / 2,
-          (rows - drawHeight) / 2,
-          drawWidth,
-          drawHeight
-        );
-
-        const pixels = offCtx.getImageData(0, 0, cols, rows).data;
-        const luma = new Float32Array(cols * rows);
-        for (let i = 0; i < luma.length; i += 1) {
-          const p = i * 4;
-          luma[i] = (0.2126 * pixels[p] + 0.7152 * pixels[p + 1] + 0.0722 * pixels[p + 2]) / 255;
-        }
-
-        lumaCache = luma;
-        lumaKey = key;
-        return luma;
-      }
-
-      function drawImageMode() {
-        const preset = presetEl.value;
-        const n = parseInt(matrixEl.value, 10);
-        const bayer = buildBayer(n);
-        const thresholdScale = n * n;
-        const grid = parseFloat(gridEl.value);
-        const ambient = parseFloat(ambientEl.value);
-        const contrast = parseFloat(contrastEl.value);
-
-        const cols = Math.max(1, Math.ceil(cssWidth / grid));
-        const rows = Math.max(1, Math.ceil(cssHeight / grid));
-        const luma = sampleLuminance(cols, rows);
-
-        // 预设映射：白底黑点 / 黑底白点 / 双色调（深紫 + 暖橙）
-        let dot = [0, 0, 0];
-        let paper = [255, 255, 255];
-        let invert = false;
-        if (preset === "highlight") {
-          dot = [255, 255, 255];
-          paper = [0, 0, 0];
-        } else if (preset === "duotone") {
-          dot = [255, 192, 122];
-          paper = [22, 16, 31];
-          invert = true;
-        }
-
-        const image = offCtx.createImageData(cols, rows);
-        const data = image.data;
-
-        for (let gy = 0; gy < rows; gy += 1) {
-          const by = gy % n;
-          for (let gx = 0; gx < cols; gx += 1) {
-            const cell = gy * cols + gx;
-            const value = clamp01(0.5 + ((ambient + (1 - ambient) * luma[cell]) - 0.5) * contrast);
-            const threshold = (bayer[by][gx % n] + 0.5) / thresholdScale;
-            const isDot = invert ? value >= threshold : value < threshold;
-            const color = isDot ? dot : paper;
-            const index = cell * 4;
-            data[index] = color[0];
-            data[index + 1] = color[1];
-            data[index + 2] = color[2];
-            data[index + 3] = 255;
-          }
-        }
-
-        offCtx.putImageData(image, 0, 0);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(off, 0, 0, cssWidth, cssHeight);
-      }
-
-      function draw(time) {
-        if (sourceImage) {
-          drawImageMode();
-          return;
-        }
-
-        const preset = presetEl.value;
-        const n = parseInt(matrixEl.value, 10);
-        const bayer = buildBayer(n);
-        const thresholdScale = n * n;
-        const grid = parseFloat(gridEl.value);
-        const ambient = parseFloat(ambientEl.value);
-        const contrast = parseFloat(contrastEl.value);
-        const lightState = makeLightState(time);
-
-        const cols = Math.max(1, Math.ceil(cssWidth / grid));
-        const rows = Math.max(1, Math.ceil(cssHeight / grid));
-
-        if (off.width !== cols || off.height !== rows) {
-          off.width = cols;
-          off.height = rows;
-        }
-
-        const image = offCtx.createImageData(cols, rows);
-        const data = image.data;
-
-        for (let gy = 0; gy < rows; gy += 1) {
-          const py = (gy + 0.5) * grid;
-          const by = gy % n;
-
-          for (let gx = 0; gx < cols; gx += 1) {
-            const px = (gx + 0.5) * grid;
-            const light = lightAt(px, py, lightState);
-            const value = clamp01(0.5 + ((ambient + (1 - ambient) * light) - 0.5) * contrast);
-            const threshold = (bayer[by][gx % n] + 0.5) / thresholdScale;
-            const index = (gy * cols + gx) * 4;
-
-            let red = 0;
-            let green = 0;
-            let blue = 0;
-            let alpha = 0;
-
-            if (preset === "shadow") {
-              if (value < threshold) alpha = 255;
-            } else if (preset === "highlight") {
-              if (value > threshold) {
-                red = 255;
-                green = 255;
-                blue = 255;
-                alpha = 255;
-              }
-            } else {
-              if (value < threshold) {
-                alpha = 255;
-              } else if (value > threshold) {
-                red = 255;
-                green = 255;
-                blue = 255;
-                alpha = 255;
-              }
-            }
-
-            data[index] = red;
-            data[index + 1] = green;
-            data[index + 2] = blue;
-            data[index + 3] = alpha;
-          }
-        }
-
-        offCtx.putImageData(image, 0, 0);
-        ctx.clearRect(0, 0, cssWidth, cssHeight);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(off, 0, 0, cssWidth, cssHeight);
-      }
-
-      function updatePreset() {
-        const preset = presetEl.value;
-        canvas.style.mixBlendMode = sourceImage ? "normal" :
-          preset === "highlight" ? "screen" :
-          preset === "duotone" ? "overlay" : "multiply";
+      function updateValueLabels() {
+        speedValue.textContent = parseFloat(speedEl.value).toFixed(2);
+        gridValue.textContent = parseFloat(gridEl.value).toFixed(1) + " px";
+        contrastValue.textContent = parseFloat(contrastEl.value).toFixed(2);
+        ambientValue.textContent = parseFloat(ambientEl.value).toFixed(2);
       }
 
       // 折叠状态机：仅图片模式下生效，指针离开面板片刻后折叠成小圆钮
@@ -694,8 +393,7 @@
       function scheduleCollapse() {
         clearTimeout(collapseTimer);
         collapseTimer = setTimeout(() => {
-          if (!sourceImage) return;
-          // 仍悬停在面板上，或面板内有控件持有焦点（如下拉框展开中）则不折叠
+          if (!imageLoaded) return;
           if (controlsEl.matches(":hover")) return;
           // 下拉框展开或滑块拖动中（焦点在控件上）则不折叠
           const active = document.activeElement;
@@ -709,150 +407,84 @@
         setControlsCollapsed(false);
       }
 
-      function updateImageUI() {
-        const hasImage = Boolean(sourceImage);
-        imageNameEl.textContent = hasImage ? imageFileName : "未加载";
-        clearImageEl.hidden = !hasImage;
-        downloadImageEl.hidden = !hasImage;
-        pickImageEl.classList.toggle("primary", !hasImage);
-        pickImageEl.textContent = hasImage ? "更换图片…" : "选择图片…";
-        sourceEl.disabled = hasImage;
-        speedEl.disabled = hasImage;
-        if (hasImage) {
+      function updateImageUI(name) {
+        imageNameEl.textContent = imageLoaded ? name : "未加载";
+        clearImageEl.hidden = !imageLoaded;
+        downloadImageEl.hidden = !imageLoaded;
+        pickImageEl.classList.toggle("primary", !imageLoaded);
+        pickImageEl.textContent = imageLoaded ? "更换图片…" : "选择图片…";
+        sourceEl.disabled = imageLoaded;
+        speedEl.disabled = imageLoaded;
+        if (imageLoaded) {
           scheduleCollapse();
         } else {
           expandControls();
         }
       }
 
-      function loadImageFile(file) {
-        if (!file || !file.type.startsWith("image/")) return;
-
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          sourceImage = img;
-          imageFileName = file.name;
-          lumaKey = "";
-          imageDirty = true;
-          updateImageUI();
-          updatePreset();
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          imageNameEl.textContent = "图片读取失败";
-        };
-        img.src = url;
-      }
-
-      function clearImage() {
-        sourceImage = null;
-        imageFileName = "";
-        lumaCache = null;
-        lumaKey = "";
-        fileInputEl.value = "";
-        updateImageUI();
-        updatePreset();
-      }
-
-      function downloadImage() {
-        canvas.toBlob((blob) => {
-          if (!blob) return;
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          const base = imageFileName ? imageFileName.replace(/\.[^.]+$/, "") : "image";
-          link.download = "dithered-" + base + ".png";
-          link.click();
-          URL.revokeObjectURL(url);
-        }, "image/png");
-      }
-
-      function updateValueLabels() {
-        speedValue.textContent = parseFloat(speedEl.value).toFixed(2);
-        gridValue.textContent = parseFloat(gridEl.value).toFixed(1) + " px";
-        contrastValue.textContent = parseFloat(contrastEl.value).toFixed(2);
-        ambientValue.textContent = parseFloat(ambientEl.value).toFixed(2);
-      }
-
-      function frame(now) {
-        if (sourceImage) {
-          // 图片是静态的，仅在参数或尺寸变化时重绘
-          if (imageDirty) {
-            imageDirty = false;
-            drawImageMode();
-          }
-        } else {
-          const speed = reducedMotion ? 0 : parseFloat(speedEl.value);
-          draw(now * 0.001 * speed);
-        }
-        requestAnimationFrame(frame);
-      }
-
       function bindEvents() {
-        window.addEventListener("resize", resize);
-
-        document.addEventListener("pointermove", (event) => {
-          pointer.x = event.clientX;
-          pointer.y = event.clientY;
-          pointer.active = true;
+        // 面板控件 → 组件属性
+        presetEl.addEventListener("change", () => fx.setAttribute("preset", presetEl.value));
+        sourceEl.addEventListener("change", () => fx.setAttribute("light", sourceEl.value));
+        matrixEl.addEventListener("change", () => fx.setAttribute("matrix", matrixEl.value));
+        speedEl.addEventListener("input", () => {
+          fx.setAttribute("speed", speedEl.value);
+          updateValueLabels();
         });
-
-        document.addEventListener("pointerout", (event) => {
-          if (!event.relatedTarget) pointer.active = false;
-        });
-
-        presetEl.addEventListener("change", () => {
-          imageDirty = true;
-          updatePreset();
-        });
-        matrixEl.addEventListener("change", () => {
-          imageDirty = true;
-        });
-        speedEl.addEventListener("input", updateValueLabels);
         gridEl.addEventListener("input", () => {
-          imageDirty = true;
+          fx.setAttribute("grid", gridEl.value);
           updateValueLabels();
         });
         contrastEl.addEventListener("input", () => {
-          imageDirty = true;
+          fx.setAttribute("contrast", contrastEl.value);
           updateValueLabels();
         });
         ambientEl.addEventListener("input", () => {
-          imageDirty = true;
+          fx.setAttribute("ambient", ambientEl.value);
           updateValueLabels();
         });
 
+        // 组件事件 → 面板状态
+        fx.addEventListener("dither-load", (event) => {
+          imageLoaded = true;
+          updateImageUI(event.detail.name);
+        });
+        fx.addEventListener("dither-clear", () => {
+          imageLoaded = false;
+          fileInputEl.value = "";
+          updateImageUI();
+        });
+        fx.addEventListener("dither-error", () => {
+          imageNameEl.textContent = "图片读取失败";
+        });
+
+        // 图片操作
         pickImageEl.addEventListener("click", () => fileInputEl.click());
         fileInputEl.addEventListener("change", () => {
-          loadImageFile(fileInputEl.files[0]);
+          if (fileInputEl.files[0]) fx.setImage(fileInputEl.files[0]);
         });
-        clearImageEl.addEventListener("click", clearImage);
-        downloadImageEl.addEventListener("click", downloadImage);
-
-        controlsEl.addEventListener("pointerenter", expandControls);
-        controlsEl.addEventListener("pointerleave", scheduleCollapse);
-        controlsToggleEl.addEventListener("pointerenter", expandControls);
-        controlsToggleEl.addEventListener("click", expandControls);
+        clearImageEl.addEventListener("click", () => fx.clearImage());
+        downloadImageEl.addEventListener("click", () => fx.downloadPNG());
 
         window.addEventListener("dragover", (event) => {
           event.preventDefault();
         });
         window.addEventListener("drop", (event) => {
           event.preventDefault();
-          if (event.dataTransfer && event.dataTransfer.files.length) {
-            loadImageFile(event.dataTransfer.files[0]);
-          }
+          const file = event.dataTransfer && event.dataTransfer.files[0];
+          if (file && file.type.startsWith("image/")) fx.setImage(file);
         });
+
+        // 折叠交互
+        controlsEl.addEventListener("pointerenter", expandControls);
+        controlsEl.addEventListener("pointerleave", scheduleCollapse);
+        controlsToggleEl.addEventListener("pointerenter", expandControls);
+        controlsToggleEl.addEventListener("click", expandControls);
       }
 
-      resize();
-      updatePreset();
       updateValueLabels();
       updateImageUI();
       bindEvents();
-      requestAnimationFrame(frame);
     })();
   </script>
 </body>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dither Light · 背景特效示例</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    display: grid;
+    place-items: center;
+    color: #f7f3ff;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* 组件作为整页背景：fixed 铺满，置于内容之下 */
+  dither-light {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+
+  main {
+    text-align: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(32px, 8vw, 96px);
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    color: rgba(247, 243, 255, 0.7);
+  }
+</style>
+</head>
+<body>
+  <!-- 最小用法：一个 script 标签 + 一个自定义元素 -->
+  <dither-light preset="shadow" light="auto" speed="1" matrix="8" grid="5"></dither-light>
+
+  <main>
+    <h1>你的页面标题</h1>
+    <p>内容正常写在组件之上，背景特效自动铺满并跟随指针 / 自动游走。</p>
+  </main>
+
+  <script src="../dither-light.js"></script>
+</body>
+</html>
