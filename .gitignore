@@ -1,0 +1,4 @@
+# 本地 agent / 工具产物，与本项目无关
+.agents/
+skills-lock.json
+.DS_Store
