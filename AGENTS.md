@@ -76,8 +76,14 @@ python3 -m http.server 8000    # 组件必须走 http://，file:// 下 canvas �
 
 - `README.md`（英文，GitHub 默认展示）—— 属性表、API、参数建议
 - `README.zh.md`（中文）—— **必须与英文版同步改**，两边内容等量。改了一边忘另一边是这个仓库最容易出的文档 bug
-- `SKILL.md` —— agent 的发现入口，采用**渐进式加载**：本体只做意图分流（保持 100 行出头，上限 500 行），细节全部放 `references/`。frontmatter 必须是合法 YAML 且只用 `name` / `description`（Claude Code、Codex、`npx skills add` 三边通用，加专有字段会破坏通用性）
+- `SKILL.md` —— agent 的发现入口，采用**渐进式加载**：本体只做意图分流，细节全部放 `references/`。官方预算是 **< 500 行且 < 5000 token**（当前 105 行 / ~1800 token）
+  - frontmatter 只能用这六个字段：`name`、`description`、`license`、`allowed-tools`、`metadata`、`compatibility`。**多写一个字段官方校验脚本就会拒绝**
+  - `name` 必须 kebab-case、≤64 字符；`description` ≤1024 字符且**不能含尖括号**
+  - 改完用官方校验脚本验一遍（`anthropics/skills` 仓库的 `skills/skill-creator/scripts/quick_validate.py`）
 - `references/*.md` —— 按路径拆分的细节文档。新增能力时：先判断属于哪条路径（A 内置 3D / B 接模型 / C 图片 / D 背景），补到对应文件；只有跨路径的通用约定才动 `SKILL.md`
+  - 保持**一级深度**，不要在 `references/` 下再套目录（spec 明确要求避免深层引用链）
+  - 索引表里每条**必须写明触发条件**（「渲染结果是满屏噪点时读 X」优于「细节见 X」），否则 agent 认不出该在什么时候加载
+  - 非显而易见的坑要留在 `SKILL.md` 里，别只放 `references/`——agent 可能根本意识不到需要去读
 - `examples/` —— 保持最小、可直接拷走
 
 ## 提交

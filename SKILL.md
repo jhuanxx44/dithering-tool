@@ -1,6 +1,10 @@
 ---
 name: dither-light
 description: 实时 1-bit 抖动（dithering）渲染器。当用户想要 Obra Dinn 式的 3D 抖动效果、想给自己的 3D 模型（Three.js / glTF / 白模）加抖动后处理、想把照片处理成复古网点画，或给网页添加抖动光影背景时使用。零依赖单文件 Web Component（dither-light.js），内置 SDF raymarch 3D 场景，纯 CPU 不需要 WebGL，无需构建即可嵌入任意前端项目（含 React / Vue）。
+license: MIT
+metadata:
+  version: "1.0"
+  repository: https://github.com/jhuanxx44/dithering-tool
 ---
 
 # Dither Light
@@ -70,16 +74,16 @@ description: 实时 1-bit 抖动（dithering）渲染器。当用户想要 Obra 
 
 ## 参考文件索引
 
-按需读取，不要一次全读：
+按需读取，不要一次全读。每条都写明了触发条件：
 
-| 文件 | 什么时候读 |
+| 读这个文件 | 当…… |
 | --- | --- |
-| [references/3d-scene.md](references/3d-scene.md) | 路径 A；也包括用户想加自定义 SDF 造型 |
-| [references/threejs.md](references/threejs.md) | 路径 B；含 `preserveDrawingBuffer` 等必踩的坑 |
-| [references/image.md](references/image.md) | 路径 C；含跨域导出限制 |
-| [references/background.md](references/background.md) | 路径 D |
-| [references/lighting.md](references/lighting.md) | 配光不好看、需要密度验证方法时 |
-| [references/api.md](references/api.md) | 需要完整属性表 / JS API / 事件签名时 |
+| [references/3d-scene.md](references/3d-scene.md) | 走路径 A，或用户要加/改自定义 SDF 造型 |
+| [references/threejs.md](references/threejs.md) | 走路径 B，或用户接了实时 canvas 后画面全白 / 卡在第一帧 |
+| [references/image.md](references/image.md) | 走路径 C，或 PNG 导出报 canvas 被污染 |
+| [references/background.md](references/background.md) | 走路径 D，或用户问为什么 3D 模式当背景会挡住内容 |
+| [references/lighting.md](references/lighting.md) | 渲染结果是满屏噪点 / 整片实心 / 看不出形体，或改完配光要验证 |
+| [references/api.md](references/api.md) | 需要精确的属性取值范围、方法签名或事件 `detail` 结构 |
 
 ## 装法（用户问怎么安装时）
 
