@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dithering Light · Gradient Shadow</title>
+<title>Dither Light · 1-bit 抖动渲染器</title>
 <style>
   :root {
     color-scheme: dark;
-    --panel-bg: rgba(8, 7, 18, 0.58);
-    --panel-border: rgba(255, 255, 255, 0.16);
-    --text: #f7f3ff;
-    --muted: rgba(247, 243, 255, 0.68);
-    --accent: #ffc07a;
+    /* 3D 模式渲染的是亮底画面，所以 UI 走深色文字 + 浅色面板，
+       不能沿用旧渐变模式那套浅色文字，否则会糊在白底上看不见 */
+    --panel-bg: rgba(255, 255, 255, 0.82);
+    --panel-border: rgba(20, 16, 32, 0.14);
+    --text: #16111f;
+    --muted: rgba(22, 17, 31, 0.62);
+    --accent: #d9832b;
   }
 
   * { box-sizing: border-box; }
@@ -23,7 +25,8 @@
 
   body {
     overflow: hidden;
-    background: #07050f;
+    /* 与 3D 模式的亮底画面一致，避免加载瞬间闪一下深色 */
+    background: #f4f4f7;
     color: var(--text);
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
@@ -106,7 +109,7 @@
     padding: 9px 10px;
     border: 1px solid var(--panel-border);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(20, 16, 32, 0.06);
     color: var(--text);
     font: inherit;
     font-size: 13px;
@@ -128,7 +131,7 @@
   input[type="range"]::-webkit-slider-runnable-track {
     height: 4px;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--accent), rgba(255, 255, 255, 0.22));
+    background: linear-gradient(90deg, var(--accent), rgba(20, 16, 32, 0.18));
     opacity: 0.9;
   }
 
@@ -137,7 +140,7 @@
     width: 16px;
     height: 16px;
     margin-top: -6px;
-    border: 2px solid rgba(255, 255, 255, 0.9);
+    border: 2px solid rgba(255, 255, 255, 0.95);
     border-radius: 50%;
     background: var(--accent);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -214,7 +217,7 @@
     padding: 9px 10px;
     border: 1px solid var(--panel-border);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(20, 16, 32, 0.06);
     color: var(--text);
     font: inherit;
     font-size: 13px;
@@ -269,7 +272,7 @@
 </style>
 </head>
 <body>
-  <dither-light id="fx"></dither-light>
+  <dither-light id="fx" scene="blob" grid="4"></dither-light>
 
   <button id="controls-toggle" type="button" aria-label="展开参数面板">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16111f" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -284,7 +287,7 @@
 
   <header>
     <h1>Dither<br>Light</h1>
-    <p>Bayer 有序抖动 · 渐变底层</p>
+    <p>1-bit 抖动渲染器 · SDF 实时造型</p>
   </header>
 
   <form id="controls" aria-label="抖动光影参数">
@@ -294,6 +297,18 @@
         <option value="shadow" selected>Shadow · multiply</option>
         <option value="highlight">Highlight · screen</option>
         <option value="duotone">Duotone · overlay</option>
+      </select>
+    </div>
+
+    <div class="control">
+      <label for="scene">造型</label>
+      <select id="scene">
+        <option value="blob" selected>Blob · 融合球</option>
+        <option value="sphere">球体</option>
+        <option value="torus">圆环</option>
+        <option value="cut">立方挖球</option>
+        <option value="gem">宝石</option>
+        <option value="off">渐变光影（非 3D）</option>
       </select>
     </div>
 
@@ -322,7 +337,7 @@
 
     <div class="control">
       <label for="grid">网点 <span class="value" id="grid-value">5 px</span></label>
-      <input id="grid" type="range" min="2" max="14" step="0.5" value="5">
+      <input id="grid" type="range" min="2" max="14" step="0.5" value="4">
     </div>
 
     <div class="control">
@@ -356,6 +371,7 @@
       const controlsToggleEl = document.getElementById("controls-toggle");
 
       const presetEl = document.getElementById("preset");
+      const sceneEl = document.getElementById("scene");
       const sourceEl = document.getElementById("source");
       const matrixEl = document.getElementById("matrix");
       const speedEl = document.getElementById("speed");
@@ -413,6 +429,7 @@
         downloadImageEl.hidden = !imageLoaded;
         pickImageEl.classList.toggle("primary", !imageLoaded);
         pickImageEl.textContent = imageLoaded ? "更换图片…" : "选择图片…";
+        sceneEl.disabled = imageLoaded;
         sourceEl.disabled = imageLoaded;
         speedEl.disabled = imageLoaded;
         if (imageLoaded) {
@@ -425,6 +442,7 @@
       function bindEvents() {
         // 面板控件 → 组件属性
         presetEl.addEventListener("change", () => fx.setAttribute("preset", presetEl.value));
+        sceneEl.addEventListener("change", () => fx.setAttribute("scene", sceneEl.value));
         sourceEl.addEventListener("change", () => fx.setAttribute("light", sourceEl.value));
         matrixEl.addEventListener("change", () => fx.setAttribute("matrix", matrixEl.value));
         speedEl.addEventListener("input", () => {

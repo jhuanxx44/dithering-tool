@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dither Light · Three.js 白模抖动对比</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #07050f;
+    color: #f7f3ff;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+
+  body {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100%;
+  }
+
+  header {
+    padding: 14px 18px 0;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+  }
+
+  header p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: rgba(247, 243, 255, 0.55);
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    min-height: 0;
+    padding: 12px 18px;
+  }
+
+  .pane {
+    position: relative;
+    display: grid;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid rgba(247, 243, 255, 0.14);
+    border-radius: 10px;
+  }
+
+  .pane > .tag {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    z-index: 2;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(7, 5, 15, 0.72);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: rgba(247, 243, 255, 0.8);
+  }
+
+  /* 左：Three.js 原始白模画面；右：抖动结果 */
+  #gl, dither-light {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    padding: 10px 18px 16px;
+    font-size: 12px;
+  }
+
+  label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    color: rgba(247, 243, 255, 0.75);
+  }
+
+  select, button {
+    padding: 4px 8px;
+    border: 1px solid rgba(247, 243, 255, 0.25);
+    border-radius: 6px;
+    background: #16111f;
+    color: inherit;
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  input[type="range"] {
+    width: 92px;
+    accent-color: #ffc07a;
+  }
+
+  @media (max-width: 720px) {
+    .stage {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Three.js 白模 → Bayer 抖动</h1>
+    <p>左边是 Three.js 渲染的原始白模，右边是同一画面每帧实时抖动的结果。抖动成本只与网点数有关，与模型面数无关。</p>
+  </header>
+
+  <div class="stage">
+    <div class="pane">
+      <span class="tag">原始白模 · Three.js</span>
+      <canvas id="gl"></canvas>
+    </div>
+    <div class="pane">
+      <span class="tag">抖动后 · dither-light</span>
+      <dither-light id="fx" preset="shadow" matrix="8" grid="4"></dither-light>
+    </div>
+  </div>
+
+  <footer>
+    <label>
+      预设
+      <select id="preset">
+        <option value="shadow" selected>白底黑点</option>
+        <option value="highlight">黑底白点</option>
+        <option value="duotone">双色调</option>
+      </select>
+    </label>
+
+    <label>
+      网点 <span id="grid-value">4 px</span>
+      <input id="grid" type="range" min="2" max="12" step="1" value="4">
+    </label>
+
+    <label>
+      对比度 <span id="contrast-value">1.35</span>
+      <input id="contrast" type="range" min="0.2" max="3" step="0.05" value="1.35">
+    </label>
+
+    <label>
+      模型
+      <select id="shape">
+        <option value="torusknot" selected>环面纽结</option>
+        <option value="suzanne">多面体</option>
+        <option value="torus">圆环</option>
+        <option value="box">立方体阵列</option>
+      </select>
+    </label>
+
+    <button id="download" type="button">下载 PNG</button>
+  </footer>
+
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+    const glCanvas = document.getElementById("gl");
+    const fx = document.getElementById("fx");
+
+    // preserveDrawingBuffer: true 是关键：否则合成后 drawing buffer 被清空，
+    // 抖动组件下一帧采样只会拿到空白画面。
+    const renderer = new THREE.WebGLRenderer({
+      canvas: glCanvas,
+      antialias: true,
+      preserveDrawingBuffer: true
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    // 背景刻意给亮：shadow 预设里"墨点跟着暗部走"，亮背景才会留白干净，
+    // 网点集中在模型的暗面上 —— 这就是 Obra Dinn 那种铜版画观感。
+    scene.background = new THREE.Color(0xf0f0f4);
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.set(0, 1.1, 5.2);
+    camera.lookAt(0, 0, 0);
+
+    // 白模：亮部留在 0.85 附近而不顶到 1.0（顶满会整片实心、丢掉形体），
+    // 暗面要够暗，才能和亮背景拉开密度差。
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xdcdce2,
+      roughness: 0.5,
+      metalness: 0
+    });
+
+    // 环境光压低：暗面越干净，明暗交界线越清楚
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x0a0a12, 0.22));
+    const key = new THREE.DirectionalLight(0xffffff, 1.6);
+    key.position.set(-3, 4, 3);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.35);
+    rim.position.set(3.5, -1, -2);
+    scene.add(rim);
+
+    // 地面比背景稍暗一点，交代空间关系但不抢主体
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(40, 40),
+      new THREE.MeshStandardMaterial({ color: 0xc4c4cc, roughness: 0.95 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1.5;
+    scene.add(ground);
+
+    const group = new THREE.Group();
+    scene.add(group);
+
+    function buildShape(kind) {
+      group.clear();
+
+      if (kind === "box") {
+        for (let i = 0; i < 14; i += 1) {
+          const size = 0.32 + (i % 4) * 0.14;
+          const cube = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), material);
+          const angle = (i / 14) * Math.PI * 2;
+          cube.position.set(Math.cos(angle) * 1.5, -0.9 + (i % 5) * 0.42, Math.sin(angle) * 1.5);
+          cube.rotation.set(i * 0.3, i * 0.5, 0);
+          group.add(cube);
+        }
+        return;
+      }
+
+      let geometry;
+      if (kind === "torus") {
+        geometry = new THREE.TorusGeometry(1.25, 0.46, 48, 96);
+      } else if (kind === "suzanne") {
+        geometry = new THREE.IcosahedronGeometry(1.45, 1);
+      } else {
+        geometry = new THREE.TorusKnotGeometry(1.0, 0.34, 160, 32);
+      }
+      group.add(new THREE.Mesh(geometry, material));
+    }
+
+    buildShape("torusknot");
+
+    // 两个画布保持同尺寸，抖动组件按 cover 采样，尺寸一致才不会裁切
+    function resize() {
+      const rect = glCanvas.parentElement.getBoundingClientRect();
+      const width = Math.max(1, Math.floor(rect.width));
+      const height = Math.max(1, Math.floor(rect.height));
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(glCanvas.parentElement);
+    resize();
+
+    // 把 Three.js 的 canvas 接成抖动组件的实时输入
+    fx.attachSource(renderer.domElement);
+
+    let t = 0;
+    function frame() {
+      t += 0.006;
+      group.rotation.y = t;
+      group.rotation.x = Math.sin(t * 0.6) * 0.28;
+      key.position.set(Math.cos(t * 0.7) * 4, 3.4, Math.sin(t * 0.7) * 4);
+
+      renderer.render(scene, camera);
+      // 在 render 之后的同一个任务里采样，最稳妥
+      fx.renderFrame();
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // 控件
+    const gridEl = document.getElementById("grid");
+    const contrastEl = document.getElementById("contrast");
+    document.getElementById("preset").addEventListener("change", (e) => {
+      fx.setAttribute("preset", e.target.value);
+    });
+    gridEl.addEventListener("input", () => {
+      fx.setAttribute("grid", gridEl.value);
+      document.getElementById("grid-value").textContent = gridEl.value + " px";
+    });
+    contrastEl.addEventListener("input", () => {
+      fx.setAttribute("contrast", contrastEl.value);
+      document.getElementById("contrast-value").textContent = parseFloat(contrastEl.value).toFixed(2);
+    });
+    document.getElementById("shape").addEventListener("change", (e) => buildShape(e.target.value));
+    document.getElementById("download").addEventListener("click", () => fx.downloadPNG("dithered-3d"));
+  </script>
+  <script src="../dither-light.js"></script>
+</body>
+</html>
