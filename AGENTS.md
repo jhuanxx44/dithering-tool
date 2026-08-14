@@ -76,7 +76,8 @@ python3 -m http.server 8000    # 组件必须走 http://，file:// 下 canvas �
 
 - `README.md`（英文，GitHub 默认展示）—— 属性表、API、参数建议
 - `README.zh.md`（中文）—— **必须与英文版同步改**，两边内容等量。改了一边忘另一边是这个仓库最容易出的文档 bug
-- `SKILL.md` —— frontmatter 的 `name` / `description` 是 agent 的发现入口，必须保持合法 YAML；能力变化时更新对应场景章节。这个格式 Claude Code（`~/.claude/skills/`）与 Codex（`~/.codex/skills/`）通用，改 frontmatter 时不要引入任何单边专有字段
+- `SKILL.md` —— agent 的发现入口，采用**渐进式加载**：本体只做意图分流（保持 100 行出头，上限 500 行），细节全部放 `references/`。frontmatter 必须是合法 YAML 且只用 `name` / `description`（Claude Code、Codex、`npx skills add` 三边通用，加专有字段会破坏通用性）
+- `references/*.md` —— 按路径拆分的细节文档。新增能力时：先判断属于哪条路径（A 内置 3D / B 接模型 / C 图片 / D 背景），补到对应文件；只有跨路径的通用约定才动 `SKILL.md`
 - `examples/` —— 保持最小、可直接拷走
 
 ## 提交

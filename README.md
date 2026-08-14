@@ -14,12 +14,13 @@ Ships with an SDF ray-marched 3D scene. Pure CPU, no WebGL. Can also post-proces
 
 ## Two ways to use it
 
-**① As a Skill for AI agents** — clone into your skills directory, then just ask in plain language. The agent reads `SKILL.md` and wires things up for you:
+**① As a Skill for AI agents** — one command, then just ask in plain language. The agent reads `SKILL.md` and wires things up for you:
 
 ```bash
-# Claude Code
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
+npx skills add jhuanxx44/dithering-tool
 ```
+
+That works for Claude Code, Codex, Cursor and 20+ other agents — it detects what you have and installs to the right path.
 
 > "Make me an Obra Dinn style 3D dithering effect"
 > "Apply dithering to my Three.js model"
@@ -48,7 +49,13 @@ That's it. No build step, no npm, no framework.
 
 ## Using it as a Skill
 
-`SKILL.md` uses the `name` + `description` frontmatter format, which **both Claude Code and Codex understand**. The same repository works for either tool with no changes — only the install directory differs:
+The easiest way is the [`skills`](https://github.com/vercel-labs/skills) CLI, which auto-detects your agent and installs to the right path:
+
+```bash
+npx skills add jhuanxx44/dithering-tool
+```
+
+Or clone manually. `SKILL.md` uses the `name` + `description` frontmatter format, which **both Claude Code and Codex understand**, so the same repository works either way — only the directory differs:
 
 ```bash
 # Claude Code
@@ -56,14 +63,6 @@ git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dithe
 
 # Codex CLI
 git clone https://github.com/jhuanxx44/dithering-tool.git ~/.codex/skills/dither-light
-```
-
-To use both without cloning twice, symlink it:
-
-```bash
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/src/dither-light
-ln -s ~/src/dither-light ~/.claude/skills/dither-light
-ln -s ~/src/dither-light ~/.codex/skills/dither-light
 ```
 
 Once installed, just ask in plain language. The agent reads `SKILL.md` and figures out what to do:
@@ -345,7 +344,14 @@ After changing lighting, verify with density sampling (ink percentage per region
 │   ├── threejs-source.html    Any Three.js model, side by side (needs network)
 │   ├── image-processor.html   Standalone image processor
 │   └── background.html        Minimal gradient background
-├── SKILL.md             Skill definition (works for Claude Code and Codex)
+├── SKILL.md             Skill entry point: routes intent, links to references/
+├── references/          Detail docs the agent loads on demand
+│   ├── 3d-scene.md            Built-in shapes + custom SDF
+│   ├── threejs.md             Post-processing any model
+│   ├── image.md               Image dithering
+│   ├── background.md          Gradient background
+│   ├── lighting.md            1-bit lighting + density verification
+│   └── api.md                 Full attribute / API reference
 ├── AGENTS.md            Agent development rules (CLAUDE.md symlinks to it)
 ├── README.md            English docs
 ├── README.zh.md         Chinese docs

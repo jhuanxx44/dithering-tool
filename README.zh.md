@@ -14,18 +14,19 @@
 
 ## 两种用法，选一个
 
-**① 当 AI agent 的 Skill 用** —— 克隆到 skills 目录，然后直接说人话，agent 会读 `SKILL.md` 帮你搭好页面、集成进项目：
+**① 当 AI agent 的 Skill 用** —— 一条命令装好，然后直接说人话，agent 会读 `SKILL.md` 帮你搭好页面、集成进项目：
 
 ```bash
-# Claude Code
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
+npx skills add jhuanxx44/dithering-tool
 ```
+
+Claude Code、Codex、Cursor 等 20+ agent 通用——它会自动识别你装了哪个并放到对应目录。
 
 > 「做个 Obra Dinn 那种 3D 抖动效果」
 > 「给我的 Three.js 白模套上抖动」
 > 「把这张照片做成网点风格」
 
-Codex 等其他 agent 的装法见[作为 Skill 用](#作为-skill-用)。
+手动安装与目录细节见[作为 Skill 用](#作为-skill-用)。
 
 **② 当普通前端组件用** —— 单文件拷走即用：
 
@@ -48,7 +49,13 @@ Codex 等其他 agent 的装法见[作为 Skill 用](#作为-skill-用)。
 
 ## 作为 Skill 用
 
-`SKILL.md` 用的是 `name` + `description` 的 frontmatter 格式，**Claude Code 和 Codex 都认**，所以同一个仓库不用改任何东西就能给两边用。区别只有装到哪个目录：
+最省事的是用 [`skills`](https://github.com/vercel-labs/skills) CLI，它会自动识别 agent 并装到对应目录：
+
+```bash
+npx skills add jhuanxx44/dithering-tool
+```
+
+也可以手动克隆。`SKILL.md` 用的是 `name` + `description` 的 frontmatter 格式，**Claude Code 和 Codex 都认**，同一个仓库不用改任何东西就能给两边用，区别只有装到哪个目录：
 
 ```bash
 # Claude Code
@@ -56,14 +63,6 @@ git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dithe
 
 # Codex CLI
 git clone https://github.com/jhuanxx44/dithering-tool.git ~/.codex/skills/dither-light
-```
-
-两边都想用又不想克隆两份，可以软链过去：
-
-```bash
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/src/dither-light
-ln -s ~/src/dither-light ~/.claude/skills/dither-light
-ln -s ~/src/dither-light ~/.codex/skills/dither-light
 ```
 
 装完直接说人话即可，agent 会读 `SKILL.md` 判断该做什么：
@@ -345,7 +344,14 @@ return <dither-light ref={ref} />;
 │   ├── threejs-source.html    接任意 Three.js 模型，左右对照（需联网）
 │   ├── image-processor.html   独立图片处理器
 │   └── background.html        渐变背景最小示例
-├── SKILL.md             Skill 定义（Claude Code / Codex 通用）
+├── SKILL.md             Skill 入口：分流意图，指向 references/
+├── references/          agent 按需加载的细节文档
+│   ├── 3d-scene.md            内置造型 + 自定义 SDF
+│   ├── threejs.md             接任意模型做后处理
+│   ├── image.md               图片抖动
+│   ├── background.md          渐变背景
+│   ├── lighting.md            1-bit 配光 + 密度验证方法
+│   └── api.md                 完整属性 / API 参考
 ├── AGENTS.md            agent 开发规则（CLAUDE.md 是它的软链接）
 ├── README.md            英文文档
 ├── README.zh.md         中文文档
