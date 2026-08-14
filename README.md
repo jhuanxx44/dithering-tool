@@ -17,7 +17,7 @@ Ships with an SDF ray-marched 3D scene. Pure CPU, no WebGL. Can also post-proces
 **① As a Skill for AI agents** — one command, then just ask in plain language. The agent reads `SKILL.md` and wires things up for you:
 
 ```bash
-npx skills add jhuanxx44/dithering-tool
+npx skills add jhuanxx44/dither-light
 ```
 
 That works for Claude Code, Codex, Cursor and 20+ other agents — it detects what you have and installs to the right path.
@@ -52,17 +52,17 @@ That's it. No build step, no npm, no framework.
 The easiest way is the [`skills`](https://github.com/vercel-labs/skills) CLI, which auto-detects your agent and installs to the right path:
 
 ```bash
-npx skills add jhuanxx44/dithering-tool
+npx skills add jhuanxx44/dither-light
 ```
 
 Or clone manually. `SKILL.md` uses the `name` + `description` frontmatter format, which **both Claude Code and Codex understand**, so the same repository works either way — only the directory differs:
 
 ```bash
 # Claude Code
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
+git clone https://github.com/jhuanxx44/dither-light.git ~/.claude/skills/dither-light
 
 # Codex CLI
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.codex/skills/dither-light
+git clone https://github.com/jhuanxx44/dither-light.git ~/.codex/skills/dither-light
 ```
 
 Once installed, just ask in plain language. The agent reads `SKILL.md` and figures out what to do:
@@ -209,7 +209,7 @@ Single file, just copy it:
 Or via jsDelivr (pin a tag — `@main` tracks the repository):
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/jhuanxx44/dithering-tool@main/dither-light.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/jhuanxx44/dither-light@main/dither-light.js"></script>
 ```
 
 Sizing is entirely up to your CSS (`display: block` by default, so **give it a height**). Resize and high-DPI handling (capped at 2×) are automatic.

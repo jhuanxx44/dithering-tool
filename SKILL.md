@@ -4,7 +4,7 @@ description: 实时 1-bit 抖动（dithering）渲染器。当用户想要 Obra 
 license: MIT
 metadata:
   version: "1.0"
-  repository: https://github.com/jhuanxx44/dithering-tool
+  repository: https://github.com/jhuanxx44/dither-light
 ---
 
 # Dither Light
@@ -91,11 +91,11 @@ frontmatter 用的是 `name` + `description` 通用格式，Claude Code 与 Code
 
 ```bash
 # 任意 agent，自动识别安装路径
-npx skills add jhuanxx44/dithering-tool
+npx skills add jhuanxx44/dither-light
 
 # 或手动克隆
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.codex/skills/dither-light
+git clone https://github.com/jhuanxx44/dither-light.git ~/.claude/skills/dither-light
+git clone https://github.com/jhuanxx44/dither-light.git ~/.codex/skills/dither-light
 ```
 
 ## 交付约定

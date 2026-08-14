@@ -17,7 +17,7 @@
 **① 当 AI agent 的 Skill 用** —— 一条命令装好，然后直接说人话，agent 会读 `SKILL.md` 帮你搭好页面、集成进项目：
 
 ```bash
-npx skills add jhuanxx44/dithering-tool
+npx skills add jhuanxx44/dither-light
 ```
 
 Claude Code、Codex、Cursor 等 20+ agent 通用——它会自动识别你装了哪个并放到对应目录。
@@ -52,17 +52,17 @@ Claude Code、Codex、Cursor 等 20+ agent 通用——它会自动识别你装�
 最省事的是用 [`skills`](https://github.com/vercel-labs/skills) CLI，它会自动识别 agent 并装到对应目录：
 
 ```bash
-npx skills add jhuanxx44/dithering-tool
+npx skills add jhuanxx44/dither-light
 ```
 
 也可以手动克隆。`SKILL.md` 用的是 `name` + `description` 的 frontmatter 格式，**Claude Code 和 Codex 都认**，同一个仓库不用改任何东西就能给两边用，区别只有装到哪个目录：
 
 ```bash
 # Claude Code
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
+git clone https://github.com/jhuanxx44/dither-light.git ~/.claude/skills/dither-light
 
 # Codex CLI
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.codex/skills/dither-light
+git clone https://github.com/jhuanxx44/dither-light.git ~/.codex/skills/dither-light
 ```
 
 装完直接说人话即可，agent 会读 `SKILL.md` 判断该做什么：
@@ -209,7 +209,7 @@ fx.downloadPNG();          // 导出 PNG，纯本地不上传
 或者 jsDelivr（建议锁 tag，`@main` 会跟着仓库变）：
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/jhuanxx44/dithering-tool@main/dither-light.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/jhuanxx44/dither-light@main/dither-light.js"></script>
 ```
 
 尺寸完全由你的 CSS 控制（默认 `display: block`，**需要给定高度**），内部自动适配尺寸变化与高 DPI（上限 2×）。

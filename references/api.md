@@ -11,7 +11,7 @@
 或 jsDelivr（建议锁 tag，`@main` 会跟着仓库变）：
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/jhuanxx44/dithering-tool@main/dither-light.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/jhuanxx44/dither-light@main/dither-light.js"></script>
 ```
 
 尺寸完全由使用者的 CSS 控制（默认 `display: block`，**需要给定高度**）。内部自动适配尺寸变化与高 DPI（上限 2×）。
