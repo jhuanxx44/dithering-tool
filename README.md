@@ -1,5 +1,7 @@
 # Dither Light
 
+**简体中文** · [English](README.en.md)
+
 零依赖、单文件的**实时 1-bit 抖动渲染器**。一个 `<dither-light>` 自定义元素，把画面量化成「有墨 / 无墨」两级的 Bayer 网点——Obra Dinn 那种铜版画观感。
 
 自带 SDF 光线步进的 3D 场景，纯 CPU，不需要 WebGL。也能给任意 Three.js 模型做后处理。
@@ -8,7 +10,24 @@
 
 ![内置五种 SDF 造型的实时抖动渲染](preview.png)
 
-*内置五种造型,全部实时渲染,纯 CPU。右上是 `duotone` 预设。*
+*内置五种造型，全部实时渲染，纯 CPU。右上是 `duotone` 预设。*
+
+## 两种用法，选一个
+
+**① 当 AI agent 的 Skill 用** —— 克隆到 skills 目录，然后直接说人话，agent 会读 `SKILL.md` 帮你搭好页面、集成进项目：
+
+```bash
+# Claude Code
+git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
+```
+
+> 「做个 Obra Dinn 那种 3D 抖动效果」
+> 「给我的 Three.js 白模套上抖动」
+> 「把这张照片做成网点风格」
+
+Codex 等其他 agent 的装法见[作为 Skill 用](#作为-skill-用)。
+
+**② 当普通前端组件用** —— 单文件拷走即用：
 
 ```html
 <script src="dither-light.js"></script>
@@ -19,10 +38,47 @@
 
 ## 目录
 
+- [作为 Skill 用](#作为-skill-用)
 - [四种用法](#四种用法) · [3D 场景](#一3d-场景内置) · [接 Three.js](#二接任意-3d-模型threejs) · [图片抖动](#三图片抖动) · [渐变背景](#四渐变光影背景)
 - [组件文档](#组件文档)：[属性](#属性) · [JS API](#js-api) · [事件](#事件) · [框架接入](#在框架中使用)
 - [调参与配光](#调参与配光)
 - [实现原理](#实现原理)
+
+---
+
+## 作为 Skill 用
+
+`SKILL.md` 用的是 `name` + `description` 的 frontmatter 格式，**Claude Code 和 Codex 都认**，所以同一个仓库不用改任何东西就能给两边用。区别只有装到哪个目录：
+
+```bash
+# Claude Code
+git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
+
+# Codex CLI
+git clone https://github.com/jhuanxx44/dithering-tool.git ~/.codex/skills/dither-light
+```
+
+两边都想用又不想克隆两份，可以软链过去：
+
+```bash
+git clone https://github.com/jhuanxx44/dithering-tool.git ~/src/dither-light
+ln -s ~/src/dither-light ~/.claude/skills/dither-light
+ln -s ~/src/dither-light ~/.codex/skills/dither-light
+```
+
+装完直接说人话即可，agent 会读 `SKILL.md` 判断该做什么：
+
+| 你说 | agent 会做 |
+| --- | --- |
+| 「做个 Obra Dinn 那种 3D 抖动效果」 | 拷组件 + 示例页，起本地服务给你看效果 |
+| 「给我的 Three.js 白模套上抖动」 | 接 `attachSource()`，并按 1-bit 规则帮你重新配光 |
+| 「把这张照片做成网点风格」 | 搭好图片处理页，调参后导出 PNG |
+| 「给我的落地页加抖动背景」 | 用渐变模式集成进你的项目 |
+
+仓库里两个文件负责这件事：
+
+- **`SKILL.md`** —— 给 agent 的能力说明：什么场景用、怎么用、有哪些坑
+- **`AGENTS.md`** —— 给 agent 的开发规则（改这个仓库本身时读）。Codex 会自动读取仓库根目录的 `AGENTS.md`；`CLAUDE.md` 是指向它的软链接，两边共用一份，不会写岔
 
 ---
 
@@ -289,8 +345,10 @@ return <dither-light ref={ref} />;
 │   ├── threejs-source.html    接任意 Three.js 模型，左右对照（需联网）
 │   ├── image-processor.html   独立图片处理器
 │   └── background.html        渐变背景最小示例
-├── SKILL.md             Claude Skill 定义
-├── AGENTS.md            agent 开发规则
+├── SKILL.md             Skill 定义（Claude Code / Codex 通用）
+├── AGENTS.md            agent 开发规则（CLAUDE.md 是它的软链接）
+├── README.md            中文文档
+├── README.en.md         英文文档
 └── preview.png
 ```
 
@@ -302,14 +360,6 @@ python3 -m http.server 8000
 ```
 
 ⚠️ **不要直接双击用 `file://` 打开。** `file://` 下 canvas 会被浏览器安全策略污染，抖动计算与 PNG 导出会失败。
-
-## 作为 Claude Skill 用
-
-```bash
-git clone https://github.com/jhuanxx44/dithering-tool.git ~/.claude/skills/dither-light
-```
-
-之后在 Claude Code 里直接说人话：「做个 Obra Dinn 那种 3D 抖动效果」「给我的 Three.js 白模套上抖动」「把这张照片做成网点风格」。agent 会读 `SKILL.md` 调用本仓库能力。
 
 ## 浏览器支持
 
