@@ -74,8 +74,8 @@ python3 -m http.server 8000    # 组件必须走 http://，file:// 下 canvas �
 
 改动影响用户可见行为时，同步更新：
 
-- `README.md`（中文，GitHub 默认展示）—— 属性表、API、参数建议
-- `README.en.md`（英文）—— **必须与中文版同步改**，两边内容等量。改了一边忘另一边是这个仓库最容易出的文档 bug
+- `README.md`（英文，GitHub 默认展示）—— 属性表、API、参数建议
+- `README.zh.md`（中文）—— **必须与英文版同步改**，两边内容等量。改了一边忘另一边是这个仓库最容易出的文档 bug
 - `SKILL.md` —— frontmatter 的 `name` / `description` 是 agent 的发现入口，必须保持合法 YAML；能力变化时更新对应场景章节。这个格式 Claude Code（`~/.claude/skills/`）与 Codex（`~/.codex/skills/`）通用，改 frontmatter 时不要引入任何单边专有字段
 - `examples/` —— 保持最小、可直接拷走
 

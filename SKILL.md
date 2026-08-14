@@ -19,7 +19,7 @@ description: 实时 1-bit 抖动（dithering）渲染器。当用户想要 Obra 
 | `examples/image-processor.html` | 独立图片处理器：选图 → 实时调参 → 下载 PNG |
 | `examples/background.html` | 渐变背景特效最小嵌入示例 |
 | `index.html` | 完整游乐场（默认 3D 场景） |
-| `README.md` | 完整属性 / API / 事件文档（英文版 `README.en.md`） |
+| `README.md` | 完整属性 / API / 事件文档（英文；中文版 `README.zh.md`） |
 
 > 本 Skill 在 Claude Code（`~/.claude/skills/`）与 Codex（`~/.codex/skills/`）下通用，frontmatter 格式两边一致，无需改动。
 
