@@ -6,7 +6,9 @@
 
 **渲染开销只跟网点数有关，与模型面数无关。** 全屏 1280×800、`grid=4` 约 11ms/帧。
 
-![效果预览](preview.png)
+![内置五种 SDF 造型的实时抖动渲染](preview.png)
+
+*内置五种造型,全部实时渲染,纯 CPU。右上是 `duotone` 预设。*
 
 ```html
 <script src="dither-light.js"></script>
