@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dither Light · 3D 抖动场景示例</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #07050f;
+  }
+
+  body {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    color: #f7f3ff;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* 3D 模式输出不透明画面，直接给尺寸即可，不需要混合模式 */
+  dither-light {
+    width: 100%;
+    height: 100%;
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 18px;
+    font-size: 13px;
+  }
+
+  label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    color: rgba(247, 243, 255, 0.75);
+  }
+
+  select {
+    padding: 4px 8px;
+    border: 1px solid rgba(247, 243, 255, 0.25);
+    border-radius: 6px;
+    background: #16111f;
+    color: inherit;
+    font: inherit;
+  }
+</style>
+</head>
+<body>
+  <!-- scene 设为造型名即进入 3D 场景模式：SDF raymarch 实时逐网点着色 -->
+  <dither-light id="fx" scene="blob" preset="shadow" matrix="8" grid="4" speed="1"></dither-light>
+
+  <footer>
+    <label>
+      造型
+      <select id="scene">
+        <option value="blob" selected>Blob · 融合球</option>
+        <option value="sphere">球体</option>
+        <option value="torus">圆环</option>
+        <option value="cut">立方挖球</option>
+        <option value="gem">宝石</option>
+      </select>
+    </label>
+
+    <label>
+      预设
+      <select id="preset">
+        <option value="shadow" selected>白底黑点</option>
+        <option value="highlight">黑底白点</option>
+        <option value="duotone">双色调</option>
+      </select>
+    </label>
+
+    <label>
+      光源
+      <select id="light">
+        <option value="auto" selected>自动绕行</option>
+        <option value="pointer">跟随指针</option>
+      </select>
+    </label>
+
+    <label>
+      网点
+      <select id="grid">
+        <option value="3">3 px</option>
+        <option value="4" selected>4 px</option>
+        <option value="6">6 px</option>
+        <option value="10">10 px</option>
+      </select>
+    </label>
+  </footer>
+
+  <script src="../dither-light.js"></script>
+  <script>
+    (() => {
+      "use strict";
+      const fx = document.getElementById("fx");
+      for (const id of ["scene", "preset", "light", "grid"]) {
+        const el = document.getElementById(id);
+        el.addEventListener("change", () => fx.setAttribute(id, el.value));
+      }
+    })();
+  </script>
+</body>
+</html>
